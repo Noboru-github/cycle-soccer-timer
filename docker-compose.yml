@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  # フロントエンドサービス
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - WATCHPACK_POLLING=true
+
+  # バックエンドサービス
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  db:
+    image: postgres:15-alpine # PostgreSQLのDockerイメージ
+    restart: always # コンテナが落ちても自動で再起動
+    environment: # データベースの設定（環境変数）
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: cycle_soccer_db
+    ports:
+      - "5432:5432" # PCの5432ポートとコンテナの5432ポートを接続
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # DBのデータを永続化
+
+# ▼▼▼ ファイルの一番下にも以下をまるごと追加 ▼▼▼
+volumes:
+  postgres_data:
