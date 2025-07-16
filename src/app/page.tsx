@@ -207,14 +207,43 @@ export default function ScoreboardPage() {
         <p>サーバー通信ステータス:</p>
         <p className="font-semibold text-white">{backendMessage}</p>
       </div>
-      <div>
-        <ul>
-          {matches.map((match) => (
-            <li key={match.id}>
-              試合結果：{match.home_score} - {match.away_score}
-            </li>
-          ))}
-        </ul>
+      <div className="w-full max-w-3xl mt-10 text-white">
+        <h3 className="text-2xl font-bold mb-4">試合結果一覧</h3>
+        <div className="overflow-x-auto relative shadow-md rounded-lg">
+          <table className="w-full text-sm text-left text-gray-400">
+            <thead className="text-xs uppercase bg-gray-700 text-gray-300">
+              <tr>
+                <th scope="col" className="px-6 py-3">
+                  試合日時
+                </th>
+                <th scope="col" className="px-6 py-3 text-center">
+                  HOME
+                </th>
+                <th scope="col" className="px-6 py-3 text-center">
+                  AWAY
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {matches.map((match) => (
+                <tr
+                  key={match.id}
+                  className="bg-gray-800 border-b border-gray-700 hover:bg-gray-600"
+                >
+                  <td className="px-6 py-4">
+                    {new Date(match.played_at).toLocaleString("ja-JP")}
+                  </td>
+                  <td className="px-6 py-4 text-center font-medium text-white">
+                    {match.home_score}
+                  </td>
+                  <td className="px-6 py-4 text-center font-medium text-white">
+                    {match.away_score}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </main>
   );
