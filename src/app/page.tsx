@@ -18,8 +18,12 @@ export default function ScoreboardPage() {
 
   const [homeScore, setHomeScore] = useState(0);
   const [awayScore, setAwayScore] = useState(0);
+  const [homeTeamName, setHomeTeamName] = useState("HomeTeam");
+  const [awayTeamName, setAwayTeamName] = useState("AwayTeam");
 
   const [matches, setMatches] = useState([]);
+
+  const [isEditing, setEditing] = useState(false);
 
   const fetchMatches = async () => {
     try {
@@ -130,14 +134,41 @@ export default function ScoreboardPage() {
     setAwayScore((prevScore) => prevScore + 1);
   };
 
+  const handleDeleteMatch = async (id: number) => {
+    if (!confirm(`試合(ID: ${id})を本当に削除しますか？`)) {
+      return;
+    }
+
+    try {
+      await fetch(`http://localhost:3001/api/matches/${id}`, {
+        method: "DELETE",
+      });
+      alert("試合結果を削除しました！");
+      fetchMatches();
+    } catch (err) {
+      console.error("削除に失敗しました。", err);
+      alert("削除に失敗しました。");
+    }
+  };
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gray-900 p-4 sm:p-8">
       <div className="w-full max-w-5xl bg-gray-800 rounded-2xl shadow-2xl p-6 sm:p-10">
         <div className="flex justify-between items-center mb-6">
           <div className="text-center flex-1">
-            <h2 className="text-3xl sm:text-5xl font-bold text-cyan-400">
-              HOME TEAM
-            </h2>
+            {isEditing ? (
+              <input
+                type="text"
+                value={homeTeamName}
+                onChange={(e) => setHomeTeamName(e.target.value)}
+                className="bg-gray-700 text-white text-3xl sm:text-5xl font-bold text-center w-full rounded-md"
+              />
+            ) : (
+              <h2 className="text-3xl sm:text-5xl font-bold text-cyan-400">
+                {homeTeamName}
+              </h2>
+            )}
+
             <button
               onClick={handleIncreaseHomeScore}
               className="mt-2 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-full w-10 h-10 flex items-center justify-center text-xl transition"
@@ -151,9 +182,18 @@ export default function ScoreboardPage() {
             </span>
           </div>
           <div className="text-center flex-1">
-            <h2 className="text-3xl sm:text-5xl font-bold text-amber-400">
-              AWAY TEAM
-            </h2>
+            {isEditing ? (
+              <input
+                type="text"
+                value={awayTeamName}
+                onChange={(e) => setAwayTeamName(e.target.value)}
+                className="bg-gray-700 text-white text-3xl sm:text-5xl font-bold text-center w-full rounded-md"
+              />
+            ) : (
+              <h2 className="text-3xl sm:text-5xl font-bold text-cyan-400">
+                {awayTeamName}
+              </h2>
+            )}
             <button
               onClick={handleIncreaseAwayScore}
               className="mt-2 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-full w-10 h-10 flex items-center justify-center text-xl transition"
@@ -200,6 +240,21 @@ export default function ScoreboardPage() {
           >
             Finish!
           </button>
+          {isEditing ? (
+            <button
+              onClick={() => setEditing(false)}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 sm:px-10 rounded-lg text-lg sm:text-2xl transition-transform transform hover:scale-105"
+            >
+              保存
+            </button>
+          ) : (
+            <button
+              onClick={() => setEditing(true)}
+              className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 sm:px-10 rounded-lg text-lg sm:text-2xl transition-transform transform hover:scale-105"
+            >
+              チーム名編集
+            </button>
+          )}
         </div>
       </div>
 
@@ -222,6 +277,9 @@ export default function ScoreboardPage() {
                 <th scope="col" className="px-6 py-3 text-center">
                   AWAY
                 </th>
+                <th scope="col" className="px-6 py-3 text-center text-red-500">
+                  Delete?
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -238,6 +296,14 @@ export default function ScoreboardPage() {
                   </td>
                   <td className="px-6 py-4 text-center font-medium text-white">
                     {match.away_score}
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <button
+                      onClick={() => handleDeleteMatch(match.id)}
+                      className="font-medium text-red-500 hover:underline"
+                    >
+                      削除
+                    </button>
                   </td>
                 </tr>
               ))}

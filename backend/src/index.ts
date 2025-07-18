@@ -69,6 +69,17 @@ app.post("/api/matches", async (req, res) => {
   }
 });
 
+app.delete("/api/matches/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query("DELETE FROM matches WHERE id = $1", [id]);
+    res.status(200).json({ message: `試合(ID: ${id})を削除しました。)` });
+  } catch (err) {
+    console.error("試合の削除に失敗しました:", err);
+    res.status(500).json({ message: "サーバーエラーが発生しました。" });
+  }
+});
+
 // サーバーの状態を確認するためのAPIエンドポイント
 app.get("/api/health", (req, res) => {
   // JSON形式でデータを返す
