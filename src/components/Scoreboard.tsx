@@ -30,6 +30,8 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
 
   const [isEditing, setEditing] = useState(false);
 
+  const [socket, setSocket] = useState(null);
+
   const fetchMatches = async () => {
     try {
       const res = await fetch("http://localhost:3001/api/matches");
@@ -86,22 +88,37 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
 
   useEffect(() => {
     // バックエンドのSocket.IOサーバーに接続
-    const socket = io("http://localhost:3001");
+    const newSocket = io("http://localhost:3001");
+    setSocket(newSocket);
 
     // 接続が成功した時のイベントリスナー
-    socket.on("connect", () => {
-      console.log("Socket.IOサーバーに接続しました! ID:", socket.id);
+    newSocket.on("connect", () => {
+      console.log("Socket.IOサーバーに接続しました! ID:", newSocket.id);
+    });
+
+    // 受け取ったデータで画面のスコアを更新
+    newSocket.on("home_score_increased", () => {
+      setHomeScore((prev) => prev + 1);
+    });
+    newSocket.on("away_score_increased", () => {
+      setAwayScore((prev) => prev + 1);
+    });
+    newSocket.on("home_score_decreased", () => {
+      setHomeScore((prev) => (prev > 0 ? prev - 1 : 0));
+    });
+    newSocket.on("away_score_decreased", () => {
+      setAwayScore((prev) => (prev > 0 ? prev - 1 : 0));
     });
 
     // 接続が切れた時のイベントリスナー
-    socket.on("disconnect", () => {
+    newSocket.on("disconnect", () => {
       console.log("Socket.IOサーバーから切断されました。");
     });
 
     // 重要
     // コンポーネントが非表示になる(アンマウントされる)時に、接続をクリーンに接続するためのクリーアップ関数
     return () => {
-      socket.disconnect();
+      newSocket.disconnect();
     };
   }, []);
 
@@ -154,16 +171,17 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
   };
 
   const handleIncreaseHomeScore = () => {
-    setHomeScore((prevScore) => prevScore + 1);
+    // もしsocketが接続されていたら、イベントを送信
+    if (socket) socket.emit("increase_home_score");
   };
   const handleIncreaseAwayScore = () => {
-    setAwayScore((prevScore) => prevScore + 1);
+    if (socket) socket.emit("increase_away_score");
   };
   const handleDecreaseHomeScore = () => {
-    setHomeScore((prevScore) => (prevScore > 0 ? prevScore - 1 : 0));
+    if (socket) socket.emit("decrease_home_score");
   };
   const handleDecreaseAwayScore = () => {
-    setAwayScore((prevScore) => (prevScore > 0 ? prevScore - 1 : 0));
+    if (socket) socket.emit("decrease_away_score");
   };
 
   const handleDeleteMatch = async (id: number) => {

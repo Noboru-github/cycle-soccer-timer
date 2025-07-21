@@ -20,6 +20,22 @@ const io = new Server(server, {
 io.on("connection", (socket) => {
   console.log("a user connected:", socket.id);
 
+  socket.on("increase_home_score", () => {
+    io.emit("home_score_increased");
+  });
+
+  socket.on("increase_away_score", () => {
+    io.emit("away_score_increased");
+  });
+
+  socket.on("decrease_home_score", () => {
+    io.emit("home_score_decreased");
+  });
+
+  socket.on("decrease_away_score", () => {
+    io.emit("away_score_decreased");
+  });
+
   socket.on("disconnect", () => {
     console.log("user disconnected:", socket.id);
   });
