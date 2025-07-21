@@ -1,9 +1,30 @@
 import express from "express";
 import cors from "cors";
 import { Pool } from "pg";
+import http from "http";
+import { Server } from "socket.io";
 
 const app = express();
 const PORT = 3001;
+
+const server = http.createServer(app); // Expressアプリからサーバーを作成
+const io = new Server(server, {
+  cors: {
+    // CORS 設定: フロントエンド(localhost:3000)からの接続を許可
+    origin: "http://localhost:3000",
+    methods: ["GET", "POST"],
+  },
+});
+
+// クライアントからの接続を待ち受ける
+io.on("connection", (socket) => {
+  console.log("a user connected:", socket.id);
+
+  socket.on("disconnect", () => {
+    console.log("user disconnected:", socket.id);
+  });
+});
+
 const pool = new Pool({
   user: "user",
   host: "db",
@@ -95,7 +116,7 @@ app.get("/", (req, res) => {
   res.send("サイクルサッカータイマーのバックエンドサーバーです！");
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(
     `サーバーがポート${PORT}で起動しました。 URL: http://localhost:${PORT}`
   );

@@ -1,0 +1,37 @@
+# ===== ビルダーステージ =====
+# Next.jsアプリをビルドするためのステージ
+FROM node:20-alpine AS builder
+
+# 作業ディレクトリを設定
+WORKDIR /app
+
+# 依存関係のファイルをコピー
+COPY package*.json ./
+
+# 開発用の依存関係も含めて全てインストール
+RUN npm install
+
+# アプリケーションのコードをコピー
+COPY . .
+
+# Next.jsのプロダクションビルドを実行
+RUN npm run build
+
+
+# ===== プロダクションステージ =====
+# 実際に本番で動かすための、軽量なステージ
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+# ビルダーステージから、最適化された本番用のファイルのみをコピー
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+
+# ポートを開放
+EXPOSE 3000
+
+# Next.jsのプロダクションサーバーを起動
+CMD ["npm", "start"]
