@@ -20,26 +20,43 @@ const io = new Server(server, {
 io.on("connection", (socket) => {
   console.log("a user connected:", socket.id);
 
+  socket.emit("scoreboard_state_sync", scoreboardState);
+
   socket.on("increase_home_score", () => {
-    io.emit("home_score_increased");
+    scoreboardState.homeScore++;
+    io.emit("scoreboard_state_sync", scoreboardState);
   });
 
   socket.on("increase_away_score", () => {
-    io.emit("away_score_increased");
+    scoreboardState.awayScore++;
+    io.emit("scoreboard_state_sync", scoreboardState);
   });
 
   socket.on("decrease_home_score", () => {
-    io.emit("home_score_decreased");
+    if (scoreboardState.homeScore > 0) scoreboardState.homeScore--;
+    io.emit("scoreboard_state_sync", scoreboardState);
   });
 
   socket.on("decrease_away_score", () => {
-    io.emit("away_score_decreased");
+    if (scoreboardState.awayScore > 0) scoreboardState.awayScore--;
+    io.emit("scoreboard_state_sync", scoreboardState);
+  });
+
+  socket.on("reset_scores", () => {
+    scoreboardState.homeScore = 0;
+    scoreboardState.awayScore = 0;
+    io.emit("scoreboard_state_sync", scoreboardState);
   });
 
   socket.on("disconnect", () => {
     console.log("user disconnected:", socket.id);
   });
 });
+
+let scoreboardState = {
+  homeScore: 0,
+  awayScore: 0,
+};
 
 const pool = new Pool({
   user: "user",

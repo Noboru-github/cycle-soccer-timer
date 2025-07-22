@@ -97,17 +97,9 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
     });
 
     // 受け取ったデータで画面のスコアを更新
-    newSocket.on("home_score_increased", () => {
-      setHomeScore((prev) => prev + 1);
-    });
-    newSocket.on("away_score_increased", () => {
-      setAwayScore((prev) => prev + 1);
-    });
-    newSocket.on("home_score_decreased", () => {
-      setHomeScore((prev) => (prev > 0 ? prev - 1 : 0));
-    });
-    newSocket.on("away_score_decreased", () => {
-      setAwayScore((prev) => (prev > 0 ? prev - 1 : 0));
+    newSocket.on("scoreboard_state_sync", (stateFromServer) => {
+      setHomeScore(stateFromServer.homeScore);
+      setAwayScore(stateFromServer.awayScore);
     });
 
     // 接続が切れた時のイベントリスナー
@@ -132,6 +124,7 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
   };
 
   const handleReset = () => {
+    if (socket) socket.emit("reset_scores");
     setIsActive(false); // タイマーを停止
     setTime(GAME_TIME_IN_SECONDS); // 時間を初期値に戻す
   };
