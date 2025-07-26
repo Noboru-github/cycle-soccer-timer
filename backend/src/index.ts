@@ -16,6 +16,8 @@ const io = new Server(server, {
   },
 });
 
+const GAME_TIME_IN_SECONDS = 7 * 60;
+
 // クライアントからの接続を待ち受ける
 io.on("connection", (socket) => {
   console.log("a user connected:", socket.id);
@@ -48,6 +50,28 @@ io.on("connection", (socket) => {
     io.emit("scoreboard_state_sync", scoreboardState);
   });
 
+  socket.on("start_timer", () => {
+    scoreboardState.isActive = true;
+    startTimer();
+    io.emit("scoreboard_state_sync", scoreboardState);
+  });
+
+  socket.on("stop_timer", () => {
+    stopTimer();
+  });
+
+  socket.on("reset_timer", () => {
+    stopTimer();
+    scoreboardState.time = GAME_TIME_IN_SECONDS;
+    io.emit("scoreboard_state_sync", scoreboardState);
+  });
+
+  socket.on("update_team_names", (newNames) => {
+    scoreboardState.homeTeamName = newNames.homeTeamName;
+    scoreboardState.awayTeamName = newNames.awayTeamName;
+    io.emit("scoreboard_state_sync", scoreboardState);
+  });
+
   socket.on("disconnect", () => {
     console.log("user disconnected:", socket.id);
   });
@@ -56,6 +80,34 @@ io.on("connection", (socket) => {
 let scoreboardState = {
   homeScore: 0,
   awayScore: 0,
+  time: GAME_TIME_IN_SECONDS,
+  isActive: false,
+  homeTeamName: "HOME TEAM",
+  awayTeamName: "AWAY TEAM",
+};
+
+let timerInterval: NodeJS.Timeout | null = null;
+
+const startTimer = () => {
+  if (timerInterval) return; // 既にタイマーが動いていたら何もしない
+
+  timerInterval = setInterval(() => {
+    if (scoreboardState.time > 0) {
+      scoreboardState.time--;
+      io.emit("scoreboard_state_sync", scoreboardState);
+    } else {
+      stopTimer(); // 時間が0になったらタイマーを停止
+    }
+  }, 1000);
+};
+
+const stopTimer = () => {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+  }
+  timerInterval = null;
+  scoreboardState.isActive = false;
+  io.emit("scoreboard_state_sync", scoreboardState);
 };
 
 const pool = new Pool({

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { io } from "socket.io-client";
+import Link from "next/link";
 
 // 定数として試合時間（7分）を秒で定義しておくと便利です
 const GAME_TIME_IN_SECONDS = 7 * 60;
@@ -25,49 +26,8 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
   const [awayScore, setAwayScore] = useState(0);
   const [homeTeamName, setHomeTeamName] = useState("HomeTeam");
   const [awayTeamName, setAwayTeamName] = useState("AwayTeam");
-
-  const [matches, setMatches] = useState([]);
-
   const [isEditing, setEditing] = useState(false);
-
   const [socket, setSocket] = useState(null);
-
-  const fetchMatches = async () => {
-    try {
-      const res = await fetch("http://localhost:3001/api/matches");
-      const data = await res.json();
-      setMatches(data);
-    } catch (err) {
-      console.log(err);
-    }
-  };
-
-  useEffect(() => {
-    fetchMatches();
-  }, []);
-
-  // --- ここからタイマーの心臓部となるロジック ---
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-
-    // もしタイマーが作動中(isActive)で、残り時間が0より大きい場合
-    if (isActive && time > 0) {
-      // 1秒ごと(1000ミリ秒)に残り時間を1ずつ減らす
-      interval = setInterval(() => {
-        setTime((prevTime) => prevTime - 1);
-      }, 1000);
-    } else if (time === 0) {
-      // 時間が0になったらタイマーを停止
-      setIsActive(false);
-    }
-
-    // このコンポーネントが再描画される前に、古いインターバルを掃除する（非常に重要！）
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, [isActive, time]); // isActiveかtimeの値が変わるたびに、このuseEffectが再実行される
 
   // --- バックエンドとの通信ロジック（変更なし） ---
   useEffect(() => {
@@ -100,6 +60,10 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
     newSocket.on("scoreboard_state_sync", (stateFromServer) => {
       setHomeScore(stateFromServer.homeScore);
       setAwayScore(stateFromServer.awayScore);
+      setTime(stateFromServer.time);
+      setIsActive(stateFromServer.isActive);
+      setHomeTeamName(stateFromServer.homeTeamName);
+      setAwayTeamName(stateFromServer.awayTeamName);
     });
 
     // 接続が切れた時のイベントリスナー
@@ -116,17 +80,16 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
 
   // --- ここからボタンが押された時の処理 ---
   const handleStart = () => {
-    setIsActive(true); // タイマーを作動中にする
+    if (socket) socket.emit("start_timer");
   };
 
   const handleStop = () => {
-    setIsActive(false); // タイマーを停止中にする
+    if (socket) socket.emit("stop_timer");
   };
 
   const handleReset = () => {
     if (socket) socket.emit("reset_scores");
-    setIsActive(false); // タイマーを停止
-    setTime(GAME_TIME_IN_SECONDS); // 時間を初期値に戻す
+    if (socket) socket.emit("reset_timer");
   };
 
   const handleFinishMatch = async () => {
@@ -141,7 +104,6 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
         body: JSON.stringify(results),
       });
       alert("試合結果を保存しました！");
-      fetchMatches();
       setHomeScore(0);
       setAwayScore(0);
       setTime(GAME_TIME_IN_SECONDS);
@@ -177,21 +139,14 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
     if (socket) socket.emit("decrease_away_score");
   };
 
-  const handleDeleteMatch = async (id: number) => {
-    if (!confirm(`試合(ID: ${id})を本当に削除しますか？`)) {
-      return;
-    }
-
-    try {
-      await fetch(`http://localhost:3001/api/matches/${id}`, {
-        method: "DELETE",
+  const handleSaveChanges = () => {
+    if (socket) {
+      socket.emit("update_team_names", {
+        homeTeamName: homeTeamName,
+        awayTeamName: awayTeamName,
       });
-      alert("試合結果を削除しました！");
-      fetchMatches();
-    } catch (err) {
-      console.error("削除に失敗しました。", err);
-      alert("削除に失敗しました。");
     }
+    setEditing(false); // 送信後に編集モード終了
   };
 
   return (
@@ -211,20 +166,22 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
                 {homeTeamName}
               </h2>
             )}
-            <div className="flex justify-center items-center gap-2 mt-2">
-              <button
-                onClick={handleIncreaseHomeScore}
-                className="mt-2 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-full w-10 h-10 flex items-center justify-center text-xl transition"
-              >
-                +
-              </button>
-              <button
-                onClick={handleDecreaseHomeScore}
-                className="mt-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-full w-10 h-10 flex items-center justify-center text-xl transition"
-              >
-                -
-              </button>
-            </div>
+            {showControls && (
+              <div className="flex justify-center items-center gap-2 mt-2">
+                <button
+                  onClick={handleIncreaseHomeScore}
+                  className="mt-2 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-full w-10 h-10 flex items-center justify-center text-xl transition"
+                >
+                  +
+                </button>
+                <button
+                  onClick={handleDecreaseHomeScore}
+                  className="mt-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-full w-10 h-10 flex items-center justify-center text-xl transition"
+                >
+                  -
+                </button>
+              </div>
+            )}
           </div>
           <div className="px-4">
             <span className="text-6xl sm:text-8xl font-mono text-white">
@@ -244,20 +201,22 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
                 {awayTeamName}
               </h2>
             )}
-            <div className="flex justify-center items-center gap-2 mt-2">
-              <button
-                onClick={handleIncreaseAwayScore}
-                className="mt-2 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-full w-10 h-10 flex items-center justify-center text-xl transition"
-              >
-                +
-              </button>
-              <button
-                onClick={handleDecreaseAwayScore}
-                className="mt-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-full w-10 h-10 flex items-center justify-center text-xl transition"
-              >
-                -
-              </button>
-            </div>
+            {showControls && (
+              <div className="flex justify-center items-center gap-2 mt-2">
+                <button
+                  onClick={handleIncreaseAwayScore}
+                  className="mt-2 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-full w-10 h-10 flex items-center justify-center text-xl transition"
+                >
+                  +
+                </button>
+                <button
+                  onClick={handleDecreaseAwayScore}
+                  className="mt-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-full w-10 h-10 flex items-center justify-center text-xl transition"
+                >
+                  -
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -301,7 +260,7 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
             </button>
             {isEditing ? (
               <button
-                onClick={() => setEditing(false)}
+                onClick={handleSaveChanges}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 sm:px-10 rounded-lg text-lg sm:text-2xl transition-transform transform hover:scale-105"
               >
                 保存
@@ -311,9 +270,14 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
                 onClick={() => setEditing(true)}
                 className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 sm:px-10 rounded-lg text-lg sm:text-2xl transition-transform transform hover:scale-105"
               >
-                チーム名編集
+                Team Edit
               </button>
             )}
+            <Link href="/results">
+              <button className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 sm:px-10 rounded-lg text-lg sm:text-2xl transition-transform transform hover:scale-105">
+                results
+              </button>
+            </Link>
           </div>
         )}
       </div>
@@ -321,55 +285,6 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
       <div className="mt-8 text-center text-gray-400">
         <p>サーバー通信ステータス:</p>
         <p className="font-semibold text-white">{backendMessage}</p>
-      </div>
-      <div className="w-full max-w-3xl mt-10 text-white">
-        <h3 className="text-2xl font-bold mb-4">試合結果一覧</h3>
-        <div className="overflow-x-auto relative shadow-md rounded-lg">
-          <table className="w-full text-sm text-left text-gray-400">
-            <thead className="text-xs uppercase bg-gray-700 text-gray-300">
-              <tr>
-                <th scope="col" className="px-6 py-3">
-                  試合日時
-                </th>
-                <th scope="col" className="px-6 py-3 text-center">
-                  HOME
-                </th>
-                <th scope="col" className="px-6 py-3 text-center">
-                  AWAY
-                </th>
-                <th scope="col" className="px-6 py-3 text-center text-red-500">
-                  Delete?
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {matches.map((match) => (
-                <tr
-                  key={match.id}
-                  className="bg-gray-800 border-b border-gray-700 hover:bg-gray-600"
-                >
-                  <td className="px-6 py-4">
-                    {new Date(match.played_at).toLocaleString("ja-JP")}
-                  </td>
-                  <td className="px-6 py-4 text-center font-medium text-white">
-                    {match.home_score}
-                  </td>
-                  <td className="px-6 py-4 text-center font-medium text-white">
-                    {match.away_score}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <button
-                      onClick={() => handleDeleteMatch(match.id)}
-                      className="font-medium text-red-500 hover:underline"
-                    >
-                      削除
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       </div>
     </main>
   );
