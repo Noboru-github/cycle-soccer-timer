@@ -1,6 +1,6 @@
 # ===== ビルダーステージ =====
 # Next.jsアプリをビルドするためのステージ
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 # 作業ディレクトリを設定
 WORKDIR /app
@@ -20,7 +20,7 @@ RUN npm run build
 
 # ===== プロダクションステージ =====
 # 実際に本番で動かすための、軽量なステージ
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 
 WORKDIR /app
 

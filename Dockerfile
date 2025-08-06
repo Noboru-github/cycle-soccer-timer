@@ -1,5 +1,5 @@
 # ベースとなるNode.js環境を指定
-FROM node:20-alpine
+FROM node:20-slim
 
 # コンテナ内の作業ディレクトリを設定
 WORKDIR /app

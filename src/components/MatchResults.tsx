@@ -1,14 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { io } from "socket.io-client";
+
+interface Match {
+  id: number;
+  home_score: number;
+  away_score: number;
+  played_at: string;
+}
+
+// const API_BASE_URL = "";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"; // ローカル用
 
 export default function MatchResults() {
-  const [matches, setMatches] = useState([]);
+  const [matches, setMatches] = useState<Match[]>([]);
 
   const fetchMatches = async () => {
     try {
-      const res = await fetch("http://localhost:3001/api/matches");
+      const res = await fetch(`${API_BASE_URL}/api/matches`);
       const data = await res.json();
       setMatches(data);
     } catch (err) {
@@ -26,7 +35,7 @@ export default function MatchResults() {
     }
 
     try {
-      await fetch(`http://localhost:3001/api/matches/${id}`, {
+      await fetch(`${API_BASE_URL}/api/matches/${id}`, {
         method: "DELETE",
       });
       alert("試合結果を削除しました！");

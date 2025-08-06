@@ -13,10 +13,13 @@ services:
       - /app/node_modules
       - /app/.next
     environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
       - WATCHPACK_POLLING=true
 
   # バックエンドサービス
   backend:
+    env_file:
+      - .env
     build:
       context: ./backend
       dockerfile: Dockerfile

@@ -1,22 +1,31 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { io } from "socket.io-client";
+import { useState, useEffect, useRef } from "react";
+import { io, Socket } from "socket.io-client";
 import Link from "next/link";
 
 // 定数として試合時間（7分）を秒で定義しておくと便利です
 const GAME_TIME_IN_SECONDS = 7 * 60;
+// const API_BASE_URL = ""; // AWS用
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"; // ローカル用
 
 type ScoreboardProps = {
   showControls: boolean;
 };
 
+interface ScoreboardState {
+  homeScore: number;
+  awayScore: number;
+  time: number;
+  isActive: boolean;
+  homeTeamName: string;
+  awayTeamName: string;
+}
+
 export default function Scoreboard({ showControls }: ScoreboardProps) {
   // --- ここから state（状態）の定義 ---
   // 残り時間を管理する state。初期値は7分（420秒）
   const [time, setTime] = useState(GAME_TIME_IN_SECONDS);
-  // タイマーが作動中かどうかを管理する state (true:作動中, false:停止中)
-  const [isActive, setIsActive] = useState(false);
   // 前半/後半を管理する state
   const [period, setPeriod] = useState("1st Half");
   // バックエンドとの通信メッセージを管理する state
@@ -27,13 +36,16 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
   const [homeTeamName, setHomeTeamName] = useState("HomeTeam");
   const [awayTeamName, setAwayTeamName] = useState("AwayTeam");
   const [isEditing, setEditing] = useState(false);
-  const [socket, setSocket] = useState(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
+
+  const addTimeIntervalRef = useRef<Node.JS.Timeout | null>(null);
+  const subtractTimeIntervalRef = useRef<Node.JS.Timeout | null>(null);
 
   // --- バックエンドとの通信ロジック（変更なし） ---
   useEffect(() => {
     const fetchBackendStatus = async () => {
       try {
-        const response = await fetch("http://localhost:3001/api/health");
+        const response = await fetch(`${API_BASE_URL}/api/health`);
         if (!response.ok)
           throw new Error(`サーバーエラー (ステータス: ${response.status})`);
         const data = await response.json();
@@ -48,7 +60,7 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
 
   useEffect(() => {
     // バックエンドのSocket.IOサーバーに接続
-    const newSocket = io("http://localhost:3001");
+    const newSocket = io(API_BASE_URL);
     setSocket(newSocket);
 
     // 接続が成功した時のイベントリスナー
@@ -57,14 +69,16 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
     });
 
     // 受け取ったデータで画面のスコアを更新
-    newSocket.on("scoreboard_state_sync", (stateFromServer) => {
-      setHomeScore(stateFromServer.homeScore);
-      setAwayScore(stateFromServer.awayScore);
-      setTime(stateFromServer.time);
-      setIsActive(stateFromServer.isActive);
-      setHomeTeamName(stateFromServer.homeTeamName);
-      setAwayTeamName(stateFromServer.awayTeamName);
-    });
+    newSocket.on(
+      "scoreboard_state_sync",
+      (stateFromServer: ScoreboardState) => {
+        setHomeScore(stateFromServer.homeScore);
+        setAwayScore(stateFromServer.awayScore);
+        setTime(stateFromServer.time);
+        setHomeTeamName(stateFromServer.homeTeamName);
+        setAwayTeamName(stateFromServer.awayTeamName);
+      }
+    );
 
     // 接続が切れた時のイベントリスナー
     newSocket.on("disconnect", () => {
@@ -92,11 +106,15 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
     if (socket) socket.emit("reset_timer");
   };
 
+  const handleTimerOnlyReset = () => {
+    if (socket) socket.emit("reset_timer");
+  };
+
   const handleFinishMatch = async () => {
     console.log("「試合終了」ボタンが押されました。");
     const results = { homeScore: homeScore, awayScore: awayScore };
     try {
-      await fetch("http://localhost:3001/api/matches", {
+      await fetch(`${API_BASE_URL}/api/matches`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -139,11 +157,76 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
     if (socket) socket.emit("decrease_away_score");
   };
 
+  const handleMouseDownAdd = () => {
+    if (socket) socket.emit("mouse_down_add");
+    addTimeIntervalRef.current = setInterval(() => {
+      if (socket) socket.emit("add_minute");
+    }, 200);
+  };
+
+  const handleMouseUpAdd = () => {
+    if (addTimeIntervalRef.current) {
+      clearInterval(addTimeIntervalRef.current);
+    }
+  };
+
+  const handleMouseDownSubtract = () => {
+    if (socket) socket.emit("mouse_down_subtract");
+    subtractTimeIntervalRef.current = setInterval(() => {
+      if (socket) socket.emit("subtract_minute");
+    }, 200);
+  };
+
+  const handleMouseUpSubtract = () => {
+    if (subtractTimeIntervalRef.current) {
+      clearInterval(subtractTimeIntervalRef.current);
+    }
+  };
+
+  const handleMouseDownAddSec = () => {
+    if (socket) socket.emit("mouse_down_add");
+    addTimeIntervalRef.current = setInterval(() => {
+      if (socket) socket.emit("add_second");
+    }, 200);
+  };
+
+  const handleMouseUpAddSec = () => {
+    if (addTimeIntervalRef.current) {
+      clearInterval(addTimeIntervalRef.current);
+    }
+  };
+
+  const handleMouseDownSubtractSec = () => {
+    if (socket) socket.emit("mouse_down_subtract");
+    subtractTimeIntervalRef.current = setInterval(() => {
+      if (socket) socket.emit("subtract_second");
+    }, 200);
+  };
+
+  const handleMouseUpSubtractSec = () => {
+    if (subtractTimeIntervalRef.current) {
+      clearInterval(subtractTimeIntervalRef.current);
+    }
+  };
+
+  const handleAddSecond = () => {
+    if (socket) socket.emit("add_second");
+  };
+  const handleSubtractSecond = () => {
+    if (socket) socket.emit("subtract_second");
+  };
+  const handleAddMinute = () => {
+    if (socket) socket.emit("add_minute");
+  };
+  const handleSubtractMinute = () => {
+    if (socket) socket.emit("subtract_minute");
+  };
+
   const handleSaveChanges = () => {
     if (socket) {
       socket.emit("update_team_names", {
-        homeTeamName: homeTeamName,
-        awayTeamName: awayTeamName,
+        home: homeTeamName,
+        away: awayTeamName,
       });
     }
     setEditing(false); // 送信後に編集モード終了
@@ -280,6 +363,76 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
             </Link>
           </div>
         )}
+        <div className="text-center my-6 sm:my-10">
+          {showControls && (
+            <div className="flex justify-center items-center gap-4 mb-2">
+              <p>minutes</p>
+              <button
+                onMouseDown={handleMouseDownAdd}
+                onMouseUp={handleMouseUpAdd}
+                onMouseLeave={handleMouseUpAdd}
+                onTouchStart={handleMouseDownAdd}
+                onTouchEnd={handleMouseUpAdd}
+                onClick={handleAddMinute}
+                className="text-2xl bg-gray-600 hover:bg-gray-700 rounded-md px-4 py-1"
+              >
+                +1
+              </button>
+              <button
+                onMouseDown={handleMouseDownSubtract}
+                onMouseUp={handleMouseUpSubtract}
+                onMouseLeave={handleMouseUpSubtract}
+                onTouchStart={handleMouseDownSubtract}
+                onTouchEnd={handleMouseUpSubtract}
+                onClick={handleSubtractMinute}
+                className="text-2xl bg-gray-600 hover:bg-gray-700 rounded-md px-4 py-1"
+              >
+                -1
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="text-center my-6 sm:my-10">
+          {showControls && (
+            <div className="flex justify-center items-center gap-4 mb-2">
+              <p>seconds</p>
+              <button
+                onMouseDown={handleMouseDownAddSec}
+                onMouseUp={handleMouseUpAddSec}
+                onMouseLeave={handleMouseUpAddSec}
+                onTouchStart={handleMouseDownAddSec}
+                onTouchEnd={handleMouseUpAddSec}
+                onClick={handleAddSecond}
+                className="text-2xl bg-gray-600 hover:bg-gray-700 rounded-md px-4 py-1"
+              >
+                +1
+              </button>
+              <button
+                onMouseDown={handleMouseDownSubtractSec}
+                onMouseUp={handleMouseUpSubtractSec}
+                onMouseLeave={handleMouseUpSubtractSec}
+                onTouchStart={handleMouseDownSubtractSec}
+                onTouchEnd={handleMouseUpSubtractSec}
+                onClick={handleSubtractSecond}
+                className="text-2xl bg-gray-600 hover:bg-gray-700 rounded-md px-4 py-1"
+              >
+                -1
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="text-center my-6 sm:my-10">
+          {showControls && (
+            <div className="flex justify-center items-center gap-4 mb-2">
+              <button
+                onClick={handleTimerOnlyReset}
+                className="text-sm bg-yellow-600 hover:bg-yellow-700 rounded-md px-3 py-1"
+              >
+                Reset Time
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="mt-8 text-center text-gray-400">
