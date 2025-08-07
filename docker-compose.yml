@@ -37,7 +37,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: cycle_soccer_db
     ports:
-      - "5432:5432" # PCの5432ポートとコンテナの5432ポートを接続
+      - "5435:5432" # PCの5432ポートとコンテナの5432ポートを接続
     volumes:
       - postgres_data:/var/lib/postgresql/data # DBのデータを永続化
 
