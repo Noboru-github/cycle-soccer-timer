@@ -38,8 +38,8 @@ export default function Scoreboard({ showControls }: ScoreboardProps) {
   const [isEditing, setEditing] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
 
-  const addTimeIntervalRef = useRef<Node.JS.Timeout | null>(null);
-  const subtractTimeIntervalRef = useRef<Node.JS.Timeout | null>(null);
+  const addTimeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const subtractTimeIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // --- バックエンドとの通信ロジック（変更なし） ---
   useEffect(() => {

@@ -4,6 +4,8 @@ import http from "http";
 import { Server } from "socket.io";
 import matchesRouter from "./routes/matches";
 import signupRouter from "./routes/signup";
+import tournamentsRouter from "./routes/tournaments";
+import teamsRouter from "./routes/teams";
 
 // --- 初期設定 ---
 const app = express();
@@ -25,9 +27,11 @@ app.use(express.json());
 // --- APIルーターの設定 ---
 app.use("/api", matchesRouter);
 app.use("/api", signupRouter);
+app.use("/api", tournamentsRouter);
+app.use("/api", teamsRouter);
 
 // --- リアルタイム処理用のインメモリ状態管理 ---
-let scoreboardState = {
+const scoreboardState = {
   homeScore: 0,
   awayScore: 0,
   time: GAME_TIME_IN_SECONDS,

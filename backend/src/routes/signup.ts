@@ -16,7 +16,7 @@ router.post("/signup", async (req: Request, res: Response) => {
       data: { name, email, password: hashedPassword },
     });
     res.status(201).json({ user: newUser });
-  } catch (error) {
+  } catch {
     res.status(400).json({ error: "User with this email already exists" });
   }
 });
